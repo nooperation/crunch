@@ -59,7 +59,9 @@ class convert_params {
         m_no_stats(false),
         m_lzma_stats(false),
         m_status(false),
-        m_canceled(false) {
+        m_canceled(false),
+        m_out_buff(nullptr),
+        m_out_buff_size(0){
   }
 
   ~convert_params() {
@@ -100,6 +102,9 @@ class convert_params {
   bool m_lzma_stats;
   mutable bool m_status;
   mutable bool m_canceled;
+
+  unsigned char *m_out_buff;
+  std::size_t m_out_buff_size;
 };
 
 bool process(convert_params& params, convert_stats& stats);

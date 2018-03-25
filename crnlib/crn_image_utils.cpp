@@ -139,6 +139,130 @@ bool read_from_file(image_u8& dest, const char* pFilename, uint read_flags) {
   return read_from_stream(dest, serializer, read_flags);
 }
 
+bool write_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format image_format, const image_u8& img, uint write_flags, int grayscale_comp_index) {
+  if ((grayscale_comp_index < -1) || (grayscale_comp_index > 3)) {
+    CRNLIB_ASSERT(0);
+    return false;
+  }
+
+  if (!img.get_width()) {
+    CRNLIB_ASSERT(0);
+    return false;
+  }
+
+  crnlib::vector<uint8> temp;
+  uint num_src_chans = 0;
+  const void* pSrc_img = NULL;
+
+  auto is_jpeg = image_format == texture_file_types::cFormatJPEG || image_format == texture_file_types::cFormatJPG;
+  if (is_jpeg) {
+    write_flags |= cWriteFlagIgnoreAlpha;
+  }
+
+  if ((img.get_comp_flags() & pixel_format_helpers::cCompFlagGrayscale) || (write_flags & image_utils::cWriteFlagGrayscale)) {
+    CRNLIB_ASSERT(grayscale_comp_index < 4);
+    if (grayscale_comp_index > 3)
+      grayscale_comp_index = 3;
+
+    temp.resize(img.get_total_pixels());
+
+    for (uint y = 0; y < img.get_height(); y++) {
+      const color_quad_u8* pSrc = img.get_scanline(y);
+      const color_quad_u8* pSrc_end = pSrc + img.get_width();
+      uint8* pDst = &temp[y * img.get_width()];
+
+      if (img.get_comp_flags() & pixel_format_helpers::cCompFlagGrayscale) {
+        while (pSrc != pSrc_end)
+          *pDst++ = (*pSrc++)[1];
+      }
+      else if (grayscale_comp_index < 0) {
+        while (pSrc != pSrc_end)
+          *pDst++ = static_cast<uint8>((*pSrc++).get_luma());
+      }
+      else {
+        while (pSrc != pSrc_end)
+          *pDst++ = (*pSrc++)[grayscale_comp_index];
+      }
+    }
+
+    pSrc_img = &temp[0];
+    num_src_chans = 1;
+  }
+  else if ((!img.is_component_valid(3)) || (write_flags & cWriteFlagIgnoreAlpha)) {
+    temp.resize(img.get_total_pixels() * 3);
+
+    for (uint y = 0; y < img.get_height(); y++) {
+      const color_quad_u8* pSrc = img.get_scanline(y);
+      const color_quad_u8* pSrc_end = pSrc + img.get_width();
+      uint8* pDst = &temp[y * img.get_width() * 3];
+
+      while (pSrc != pSrc_end) {
+        const color_quad_u8 c(*pSrc++);
+
+        pDst[0] = c.r;
+        pDst[1] = c.g;
+        pDst[2] = c.b;
+
+        pDst += 3;
+      }
+    }
+
+    num_src_chans = 3;
+    pSrc_img = &temp[0];
+  }
+  else {
+    num_src_chans = 4;
+    pSrc_img = img.get_ptr();
+  }
+
+  bool success = false;
+  if (image_format == texture_file_types::cFormatPNG) {
+    size_t png_image_size = 0;
+    *out_buff = static_cast<unsigned char *>(tdefl_write_image_to_png_file_in_memory(pSrc_img, img.get_width(), img.get_height(), num_src_chans, &out_buff_size));
+    if (*out_buff == nullptr)
+    {
+      return false;
+    }
+    // TODO: Free this crap.
+    // mz_free(pPNG_image_data);
+    success = true;
+  }
+  else if (is_jpeg)
+  {
+    jpge::params params;
+    if (write_flags & cWriteFlagJPEGQualityLevelMask)
+    {
+      params.m_quality = math::clamp<uint>((write_flags & cWriteFlagJPEGQualityLevelMask) >> cWriteFlagJPEGQualityLevelShift, 1U, 100U);
+    }
+
+    params.m_two_pass_flag = (write_flags & cWriteFlagJPEGTwoPass) != 0;
+    params.m_no_chroma_discrim_flag = (write_flags & cWriteFlagJPEGNoChromaDiscrim) != 0;
+
+    if (write_flags & cWriteFlagJPEGH1V1)
+      params.m_subsampling = jpge::H1V1;
+    else if (write_flags & cWriteFlagJPEGH2V1)
+      params.m_subsampling = jpge::H2V1;
+    else if (write_flags & cWriteFlagJPEGH2V2)
+      params.m_subsampling = jpge::H2V2;
+
+    // TODO: Support this non-crap (need a dynamic buffer)
+    success = jpge::compress_image_to_jpeg_file_in_memory(out_buff, out_buff_size, img.get_width(), img.get_height(), num_src_chans, (const jpge::uint8*)pSrc_img, params);
+  }
+  /// TODO: Support this crap
+  //else 
+  //{
+  //  if (image_format == texture_file_types::cFormatBMP)
+  //  {
+  //    success = stbi_write_bmp(pFilename, img.get_width(), img.get_height(), num_src_chans, pSrc_img);
+  //  }
+  //  else
+  //  {
+  //    success = stbi_write_tga(pFilename, img.get_width(), img.get_height(), num_src_chans, pSrc_img);
+  //  }
+  //}
+  return success;
+}
+
 bool write_to_file(const char* pFilename, const image_u8& img, uint write_flags, int grayscale_comp_index) {
   if ((grayscale_comp_index < -1) || (grayscale_comp_index > 3)) {
     CRNLIB_ASSERT(0);

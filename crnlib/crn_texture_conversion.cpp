@@ -388,13 +388,30 @@ static bool write_compressed_texture(
   crn_format crn_fmt = pixel_format_helpers::convert_pixel_format_to_best_crn_format(dst_format);
   comp_params.m_format = crn_fmt;
 
-  console::message("Writing %s texture to file: \"%s\"", crn_get_format_string(crn_fmt), params.m_dst_filename.get_ptr());
-
   uint32 actual_quality_level;
   float actual_bitrate;
-  bool status = work_tex.write_to_file(params.m_dst_filename.get_ptr(), params.m_dst_file_type, &comp_params, &actual_quality_level, &actual_bitrate);
-  if (!status)
-    return convert_error(params, "Failed writing output file!");
+  bool status = false;
+
+  if (params.m_dst_filename.is_empty() == false)
+  {
+    console::message("Writing %s texture to file: \"%s\"", crn_get_format_string(crn_fmt), params.m_dst_filename.get_ptr());
+
+    status = work_tex.write_to_file(params.m_dst_filename.get_ptr(), params.m_dst_file_type, &comp_params, &actual_quality_level, &actual_bitrate);
+    if (!status)
+    {
+      return convert_error(params, "Failed writing output file!");
+    }
+  }
+  else
+  {
+    console::message("Writing %s texture to memory", crn_get_format_string(crn_fmt));
+
+    status = work_tex.write_to_memory(&params.m_out_buff, params.m_out_buff_size, params.m_dst_file_type, &comp_params, &actual_quality_level, &actual_bitrate);
+    if (!status)
+    {
+      return convert_error(params, "Failed writing memory!");
+    }
+  }
 
   if (!params.m_no_stats) {
     if (!stats.init(params.m_pInput_texture->get_source_filename().get_ptr(), params.m_dst_filename.get_ptr(), *params.m_pIntermediate_texture, params.m_dst_file_type, params.m_lzma_stats)) {
@@ -472,7 +489,7 @@ static bool convert_and_write_normal_texture(mipmapped_texture& work_tex, conver
           return convert_error(params, "Failed writing output file!");
       }
     }
-  } else {
+  } else if(params.m_dst_filename.is_empty() == false) {
     console::message("Writing texture to file: \"%s\"", params.m_dst_filename.get_ptr());
 
     if (!work_tex.write_to_file(params.m_dst_filename.get_ptr(), params.m_dst_file_type, NULL, NULL, NULL))
@@ -483,6 +500,11 @@ static bool convert_and_write_normal_texture(mipmapped_texture& work_tex, conver
         console::warning("Unable to compute output statistics for file: %s", params.m_pInput_texture->get_source_filename().get_ptr());
       }
     }
+  } else {
+    console::message("Writing texture to memory");
+
+    if (!work_tex.write_to_memory(&params.m_out_buff, params.m_out_buff_size, params.m_dst_file_type, NULL, NULL, NULL))
+      return convert_error(params, "Failed writing texture to memory!");
   }
 
   return true;

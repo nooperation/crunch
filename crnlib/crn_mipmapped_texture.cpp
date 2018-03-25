@@ -2783,6 +2783,85 @@ bool mipmapped_texture::read_crn(data_stream_serializer& serializer) {
   return read_crn_from_memory(crn_data.get_ptr(), crn_data.size(), serializer.get_name().get_ptr());
 }
 
+
+bool mipmapped_texture::write_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format file_format, crn_comp_params* pComp_params, uint32* pActual_quality_level, float* pActual_bitrate, uint32 image_write_flags)
+{
+  if (pActual_quality_level)
+  {
+    *pActual_quality_level = 0;
+  }
+  if (pActual_bitrate)
+  {
+    *pActual_bitrate = 0.0f;
+  }
+
+  if (!is_valid())
+  {
+    set_last_error("Unable to write empty texture");
+    return false;
+  }
+
+  if (file_format == texture_file_types::cFormatInvalid) 
+  {
+    set_last_error("Unknown file format");
+    return false;
+  }
+
+  bool success = false;
+
+  if (((pComp_params) && (file_format == texture_file_types::cFormatDDS)) || (file_format == texture_file_types::cFormatCRN))
+  {
+    if (!pComp_params)
+    {
+      return false;
+    }
+
+    success = write_comp_texture_to_memory(out_buff, out_buff_size, *pComp_params, pActual_quality_level, pActual_bitrate);
+  }
+  else if (!texture_file_types::supports_mipmaps(file_format))
+  {
+    success = write_regular_image_to_memory(out_buff, out_buff_size, file_format, image_write_flags);
+  }
+  else
+  {
+    if (pComp_params)
+    {
+      console::warning("mipmapped_texture::write_to_file: Ignoring CRN compression parameters (currently unsupported for this file type).");
+    }
+
+    set_last_error("TODO: Support this crap");
+    success = false;
+    // TODO: Support this crap
+    // cfile_stream write_stream;
+    //if (!write_stream.open(pFilename, cDataStreamWritable | cDataStreamSeekable))
+    //{
+    //  set_last_error(dynamic_string(cVarArg, "Failed creating output file \"%s\"", pFilename).get_ptr());
+    //  return false;
+    //}
+    //data_stream_serializer serializer(write_stream);
+    //
+    //switch (file_format)
+    //{
+    //  case texture_file_types::cFormatDDS:
+    //  {
+    //    success = write_dds(serializer);
+    //    break;
+    //  }
+    //  case texture_file_types::cFormatKTX:
+    //  {
+    //    success = write_ktx(serializer);
+    //    break;
+    //  }
+    //  default:
+    //  {
+    //    break;
+    //  }
+    //}
+  }
+
+  return success;
+}
+
 bool mipmapped_texture::write_to_file(
     const char* pFilename,
     texture_file_types::format file_format,
@@ -2846,6 +2925,18 @@ bool mipmapped_texture::write_to_file(
   return success;
 }
 
+bool mipmapped_texture::write_regular_image_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format image_format, uint32 image_write_flags) {
+  image_u8 tmp;
+  image_u8* pLevel_image = get_level_image(0, 0, tmp);
+
+  if (!image_utils::write_to_memory(out_buff, out_buff_size, image_format, *pLevel_image, image_write_flags)) {
+    set_last_error("Memory write failed");
+    return false;
+  }
+
+  return true;
+}
+
 bool mipmapped_texture::write_regular_image(const char* pFilename, uint32 image_write_flags) {
   image_u8 tmp;
   image_u8* pLevel_image = get_level_image(0, 0, tmp);
@@ -2884,6 +2975,58 @@ void mipmapped_texture::print_crn_comp_params(const crn_comp_params& p) {
   console::debug("AdaptiveTileColorPSNRDerating: %2.2fdB", p.m_crn_adaptive_tile_color_psnr_derating);
   console::debug("AdaptiveTileAlphaPSNRDerating: %2.2fdB", p.m_crn_adaptive_tile_alpha_psnr_derating);
   console::debug("NumHelperThreads: %u", p.m_num_helper_threads);
+}
+
+bool mipmapped_texture::write_comp_texture_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, const crn_comp_params& orig_comp_params, uint32* pActual_quality_level, float* pActual_bitrate) {
+  crn_comp_params comp_params(orig_comp_params);
+
+  if (pActual_quality_level)
+    *pActual_quality_level = 0;
+  if (pActual_bitrate)
+    *pActual_bitrate = 0.0f;
+
+  if (math::maximum(get_height(), get_width()) > cCRNMaxLevelResolution) {
+    set_last_error("Texture resolution is too big!");
+    return false;
+  }
+
+  comp_params.m_faces = get_num_faces();
+  comp_params.m_levels = get_num_levels();
+  comp_params.m_width = get_width();
+  comp_params.m_height = get_height();
+
+  image_u8 temp_images[cCRNMaxFaces][cCRNMaxLevels];
+  for (uint f = 0; f < get_num_faces(); f++) {
+    for (uint l = 0; l < get_num_levels(); l++) {
+      image_u8* p = get_level_image(f, l, temp_images[f][l]);
+
+      comp_params.m_pImages[f][l] = (crn_uint32*)p->get_ptr();
+    }
+  }
+
+  if (comp_params.get_flag(cCRNCompFlagDebugging))
+    print_crn_comp_params(comp_params);
+
+  timer t;
+  t.start();
+
+  crnlib::vector<uint8> comp_data;
+  if (!create_compressed_texture(comp_params, comp_data, pActual_quality_level, pActual_bitrate)) {
+    set_last_error("CRN compression failed");
+    return false;
+  }
+
+  double total_time = t.get_elapsed_secs();
+  if (comp_params.get_flag(cCRNCompFlagDebugging)) {
+    console::debug("\nTotal compression time: %3.3fs", total_time);
+  }
+
+  *out_buff = new unsigned char[comp_data.size()];
+  out_buff_size = comp_data.size();
+
+  memcpy(*out_buff, comp_data.get_ptr(), comp_data.size());
+
+  return true;
 }
 
 bool mipmapped_texture::write_comp_texture(const char* pFilename, const crn_comp_params& orig_comp_params, uint32* pActual_quality_level, float* pActual_bitrate) {

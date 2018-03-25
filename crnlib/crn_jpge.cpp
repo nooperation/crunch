@@ -1027,7 +1027,7 @@ class cfile_stream : public output_stream {
     return m_bStatus;
   }
 
-  virtual bool put_buf(const void* pBuf, int len) {
+  virtual bool put_buf(const void* pBuf, std::size_t len) {
     m_bStatus = m_bStatus && (fwrite(pBuf, len, 1, m_pFile) == 1);
     return m_bStatus;
   }
@@ -1067,29 +1067,29 @@ class memory_stream : public output_stream {
   memory_stream& operator=(const memory_stream&);
 
   uint8* m_pBuf;
-  uint m_buf_size, m_buf_ofs;
+  std::size_t m_buf_size, m_buf_ofs;
 
  public:
-  memory_stream(void* pBuf, uint buf_size)
+  memory_stream(void* pBuf, std::size_t buf_size)
       : m_pBuf(static_cast<uint8*>(pBuf)), m_buf_size(buf_size), m_buf_ofs(0) {}
 
   virtual ~memory_stream() {}
 
-  virtual bool put_buf(const void* pBuf, int len) {
+  virtual bool put_buf(const void* pBuf, std::size_t len) {
     uint buf_remaining = m_buf_size - m_buf_ofs;
-    if ((uint)len > buf_remaining)
+    if (len > buf_remaining)
       return false;
     memcpy(m_pBuf + m_buf_ofs, pBuf, len);
     m_buf_ofs += len;
     return true;
   }
 
-  uint get_size() const {
+  std::size_t get_size() const {
     return m_buf_ofs;
   }
 };
 
-bool compress_image_to_jpeg_file_in_memory(void* pDstBuf, int& buf_size, int width, int height, int num_channels, const uint8* pImage_data, const params& comp_params) {
+bool compress_image_to_jpeg_file_in_memory(void* pDstBuf, std::size_t& buf_size, int width, int height, int num_channels, const uint8* pImage_data, const params& comp_params) {
   if ((!pDstBuf) || (!buf_size))
     return false;
 

@@ -4,6 +4,8 @@
 #ifndef JPEG_ENCODER_H
 #define JPEG_ENCODER_H
 
+#include <cstddef>
+
 namespace jpge {
 typedef unsigned char uint8;
 typedef signed short int16;
@@ -55,14 +57,14 @@ bool compress_image_to_jpeg_file(const char* pFilename, int width, int height, i
 // Writes JPEG image to memory buffer.
 // On entry, buf_size is the size of the output buffer pointed at by pBuf, which should be at least ~1024 bytes.
 // If return value is true, buf_size will be set to the size of the compressed data.
-bool compress_image_to_jpeg_file_in_memory(void* pBuf, int& buf_size, int width, int height, int num_channels, const uint8* pImage_data, const params& comp_params = params());
+bool compress_image_to_jpeg_file_in_memory(void* pBuf, std::size_t& buf_size, int width, int height, int num_channels, const uint8* pImage_data, const params& comp_params = params());
 
 // Output stream abstract class - used by the jpeg_encoder class to write to the output stream.
 // put_buf() is generally called with len==JPGE_OUT_BUF_SIZE bytes, but for headers it'll be called with smaller amounts.
 class output_stream {
  public:
   virtual ~output_stream(){};
-  virtual bool put_buf(const void* Pbuf, int len) = 0;
+  virtual bool put_buf(const void* Pbuf, std::size_t len) = 0;
   template <class T>
   inline bool put_obj(const T& obj) { return put_buf(&obj, sizeof(T)); }
 };

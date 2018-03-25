@@ -3,6 +3,7 @@
 #pragma once
 #include "crn_image.h"
 #include "crn_data_stream_serializer.h"
+#include "crn_texture_file_types.h"
 
 namespace crnlib {
 enum pixel_format;
@@ -43,6 +44,7 @@ inline uint create_jpeg_write_flags(uint base_flags, uint quality_level) {
   return base_flags | ((quality_level << cWriteFlagJPEGQualityLevelShift) & cWriteFlagJPEGQualityLevelMask);
 }
 
+bool write_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format image_format, const image_u8& img, uint write_flags, int grayscale_comp_index = cLumaComponentIndex);
 bool write_to_file(const char* pFilename, const image_u8& img, uint write_flags = 0, int grayscale_comp_index = cLumaComponentIndex);
 
 bool has_alpha(const image_u8& img);
