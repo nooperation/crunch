@@ -15,6 +15,8 @@
 #include <malloc.h>
 
 #include "crn_core.h"
+#include "crn_dynamic_stream.h"
+#include "crn_data_stream_serializer.h"
 
 #define JPGE_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define JPGE_MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -1089,13 +1091,29 @@ class memory_stream : public output_stream {
   }
 };
 
-bool compress_image_to_jpeg_file_in_memory(void* pDstBuf, std::size_t& buf_size, int width, int height, int num_channels, const uint8* pImage_data, const params& comp_params) {
-  if ((!pDstBuf) || (!buf_size))
+class dynamic_output_stream : public output_stream
+{
+  public:
+    virtual ~dynamic_output_stream() {};
+
+    virtual bool put_buf(const void* Pbuf, std::size_t len)
+    {
+      _base_stream.write(Pbuf, len);
+      return true;
+    }
+    template <class T>
+    inline bool put_obj(const T& obj) { return put_buf(&obj, sizeof(T)); }
+
+    crnlib::dynamic_stream _base_stream;
+};
+
+bool compress_image_to_jpeg_file_in_memory(uint8_t** dest_buff, std::size_t& out_buff_size, int width, int height, int num_channels, const uint8* pImage_data, const params& comp_params) {
+  if (dest_buff == nullptr)
+  {
     return false;
+  }
 
-  memory_stream dst_stream(pDstBuf, buf_size);
-
-  buf_size = 0;
+  dynamic_output_stream dst_stream;
 
   jpge::jpeg_encoder dst_image;
   if (!dst_image.init(&dst_stream, width, height, num_channels, comp_params))
@@ -1113,7 +1131,10 @@ bool compress_image_to_jpeg_file_in_memory(void* pDstBuf, std::size_t& buf_size,
 
   dst_image.deinit();
 
-  buf_size = dst_stream.get_size();
+  out_buff_size = dst_stream._base_stream.get_size();
+  *dest_buff = new uint8_t[out_buff_size];
+  memcpy(*dest_buff, dst_stream._base_stream.get_ptr(), dst_stream._base_stream.get_size());
+
   return true;
 }
 

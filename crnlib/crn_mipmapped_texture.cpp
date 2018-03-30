@@ -9,6 +9,7 @@
 #include "crn_ktx_texture.h"
 
 #include "../inc/crn_defs.h"
+#include "crn_dynamic_stream.h"
 
 namespace crnlib {
 const vec2I g_vertical_cross_image_offsets[6] = {vec2I(2, 1), vec2I(0, 1), vec2I(1, 0), vec2I(1, 2), vec2I(1, 1), vec2I(1, 3)};
@@ -2829,34 +2830,30 @@ bool mipmapped_texture::write_to_memory(unsigned char **out_buff, std::size_t &o
       console::warning("mipmapped_texture::write_to_file: Ignoring CRN compression parameters (currently unsupported for this file type).");
     }
 
-    set_last_error("TODO: Support this crap");
-    success = false;
-    // TODO: Support this crap
-    // cfile_stream write_stream;
-    //if (!write_stream.open(pFilename, cDataStreamWritable | cDataStreamSeekable))
-    //{
-    //  set_last_error(dynamic_string(cVarArg, "Failed creating output file \"%s\"", pFilename).get_ptr());
-    //  return false;
-    //}
-    //data_stream_serializer serializer(write_stream);
-    //
-    //switch (file_format)
-    //{
-    //  case texture_file_types::cFormatDDS:
-    //  {
-    //    success = write_dds(serializer);
-    //    break;
-    //  }
-    //  case texture_file_types::cFormatKTX:
-    //  {
-    //    success = write_ktx(serializer);
-    //    break;
-    //  }
-    //  default:
-    //  {
-    //    break;
-    //  }
-    //}
+    dynamic_stream write_stream;
+    data_stream_serializer serializer(write_stream);
+
+    switch (file_format)
+    {
+    case texture_file_types::cFormatDDS:
+    {
+      success = write_dds(serializer);
+      break;
+    }
+    case texture_file_types::cFormatKTX:
+    {
+      success = write_ktx(serializer);
+      break;
+    }
+    default:
+    {
+      break;
+    }
+    }
+
+    out_buff_size = write_stream.get_size();
+    *out_buff = new unsigned char[out_buff_size];
+    memcpy(*out_buff, write_stream.get_ptr(), out_buff_size);
   }
 
   return success;

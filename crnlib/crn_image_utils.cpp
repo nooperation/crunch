@@ -223,8 +223,6 @@ bool write_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, textu
     {
       return false;
     }
-    // TODO: Free this crap.
-    // mz_free(pPNG_image_data);
     success = true;
   }
   else if (is_jpeg)
@@ -245,7 +243,6 @@ bool write_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, textu
     else if (write_flags & cWriteFlagJPEGH2V2)
       params.m_subsampling = jpge::H2V2;
 
-    // TODO: Support this non-crap (need a dynamic buffer)
     success = jpge::compress_image_to_jpeg_file_in_memory(out_buff, out_buff_size, img.get_width(), img.get_height(), num_src_chans, (const jpge::uint8*)pSrc_img, params);
   }
   /// TODO: Support this crap
