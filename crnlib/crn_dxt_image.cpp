@@ -100,7 +100,7 @@ bool dxt_image::init_internal(dxt_format fmt, uint width, uint height) {
   m_blocks_y = (m_height + 3) >> cDXTBlockShift;
 
   m_num_elements_per_block = 2;
-  if ((fmt == cDXT1) || (fmt == cDXT1A) || (fmt == cDXT5A) || (fmt == cETC1) || (fmt == cETC2))
+  if ((fmt == cDXT1) || (fmt == cDXT1A) || (fmt == cDXT5A) || (fmt == cETC1) || (fmt == cETC2) || (fmt == cETC1S))
     m_num_elements_per_block = 1;
 
   m_total_blocks = m_blocks_x * m_blocks_y;
@@ -151,7 +151,8 @@ bool dxt_image::init_internal(dxt_format fmt, uint width, uint height) {
       m_element_component_index[1] = 0;
       break;
     }
-    case cETC1: {
+    case cETC1:
+    case cETC1S: {
       m_element_type[0] = cColorETC1;
       m_element_component_index[0] = -1;
       break;
@@ -161,7 +162,8 @@ bool dxt_image::init_internal(dxt_format fmt, uint width, uint height) {
       m_element_component_index[0] = -1;
       break;
     }
-    case cETC2A: {
+    case cETC2A:
+    case cETC2AS: {
       m_element_type[0] = cAlphaETC2;
       m_element_type[1] = cColorETC2;
       m_element_component_index[0] = 3;
@@ -491,6 +493,7 @@ bool dxt_image::has_alpha() const {
     case cDXT5:
     case cDXT5A:
     case cETC2A:
+    case cETC2AS:
       return true;
     default:
       break;
@@ -1037,6 +1040,30 @@ void dxt_image::set_block_pixels(
         rg_etc1::pack_etc1_block(pElement, (uint32*)pPixels, pack_params);
       }
     }
+
+  } else if (m_format == cETC1S) {
+    crn_etc1_pack_params pack_params;
+    pack_params.m_perceptual = p.m_perceptual;
+    pack_params.m_dithering = p.m_dithering;
+    pack_params.m_quality = p.m_quality <= cCRNDXTQualityFast ? cCRNETCQualityFast : p.m_quality <= cCRNDXTQualityNormal ? cCRNETCQualityMedium : cCRNETCQualitySlow;
+    pack_etc1s_block(*(etc1_block*)pElement, pPixels, pack_params);
+
+  } else if (m_format == cETC2AS) {
+    for (uint element_index = 0; element_index < m_num_elements_per_block; element_index++, pElement++) {
+      if (m_element_type[element_index] == cAlphaETC2) {
+        rg_etc1::etc2a_pack_params pack_params;
+        pack_params.m_quality = p.m_quality <= cCRNDXTQualityFast ? rg_etc1::cLowQuality : p.m_quality <= cCRNDXTQualityNormal ? rg_etc1::cMediumQuality : rg_etc1::cHighQuality;
+        pack_params.comp_index = m_element_component_index[element_index];
+        rg_etc1::pack_etc2_alpha(pElement, (uint32*)pPixels, pack_params);
+      } else {
+        crn_etc1_pack_params pack_params;
+        pack_params.m_perceptual = p.m_perceptual;
+        pack_params.m_dithering = p.m_dithering;
+        pack_params.m_quality = p.m_quality <= cCRNDXTQualityFast ? cCRNETCQualityFast : p.m_quality <= cCRNDXTQualityNormal ? cCRNETCQualityMedium : cCRNETCQualitySlow;
+        pack_etc1s_block(*(etc1_block*)pElement, pPixels, pack_params);
+      }
+    }
+
   } else
 #if CRNLIB_SUPPORT_SQUISH
       if ((p.m_compressor == cCRNDXTCompressorSquish) && ((m_format == cDXT1) || (m_format == cDXT1A) || (m_format == cDXT3) || (m_format == cDXT5) || (m_format == cDXT5A))) {
@@ -1498,7 +1525,7 @@ void dxt_image::flip_row(uint y) {
 }
 
 bool dxt_image::can_flip(uint axis_index) {
-  if (m_format == cETC1 || m_format == cETC2 || m_format == cETC2A) {
+  if (m_format == cETC1 || m_format == cETC2 || m_format == cETC2A || m_format == cETC1S || m_format == cETC2AS) {
     // Can't reliably flip ETCn textures (because of asymmetry in the 555/333 differential coding of subblock colors).
     return false;
   }
@@ -1518,7 +1545,7 @@ bool dxt_image::can_flip(uint axis_index) {
 }
 
 bool dxt_image::flip_x() {
-  if (m_format == cETC1 || m_format == cETC2 || m_format == cETC2A) {
+  if (m_format == cETC1 || m_format == cETC2 || m_format == cETC2A || m_format == cETC1S || m_format == cETC2AS) {
     // Can't reliably flip ETCn textures (because of asymmetry in the 555/333 differential coding of subblock colors).
     return false;
   }
@@ -1562,7 +1589,7 @@ bool dxt_image::flip_x() {
 }
 
 bool dxt_image::flip_y() {
-  if (m_format == cETC1 || m_format == cETC2 || m_format == cETC2A) {
+  if (m_format == cETC1 || m_format == cETC2 || m_format == cETC2A || m_format == cETC1S || m_format == cETC2AS) {
     // Can't reliably flip ETCn textures (because of asymmetry in the 555/333 differential coding of subblock colors).
     return false;
   }

@@ -73,6 +73,8 @@ enum crn_format {
   cCRNFmtETC1,
   cCRNFmtETC2,
   cCRNFmtETC2A,
+  cCRNFmtETC1S,
+  cCRNFmtETC2AS,
 
   cCRNFmtTotal,
 
@@ -90,7 +92,7 @@ enum crn_limits {
   cCRNMaxFaces = 6,
   cCRNMaxLevels = 16,
 
-  cCRNMaxHelperThreads = 16,
+  cCRNMaxHelperThreads = 15,
 
   cCRNMinQualityLevel = 0,
   cCRNMaxQualityLevel = 255
