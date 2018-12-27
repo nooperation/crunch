@@ -2809,7 +2809,7 @@ bool mipmapped_texture::read_crn(data_stream_serializer& serializer) {
 }
 
 
-bool mipmapped_texture::write_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format file_format, crn_comp_params* pComp_params, uint32* pActual_quality_level, float* pActual_bitrate, uint32 image_write_flags)
+bool mipmapped_texture::write_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format file_format, crn_comp_params* pComp_params, uint32* pActual_quality_level, float* pActual_bitrate, uint32 image_write_flags, uint32 level)
 {
   if (pActual_quality_level)
   {
@@ -2845,7 +2845,7 @@ bool mipmapped_texture::write_to_memory(unsigned char **out_buff, std::size_t &o
   }
   else if (!texture_file_types::supports_mipmaps(file_format))
   {
-    success = write_regular_image_to_memory(out_buff, out_buff_size, file_format, image_write_flags);
+    success = write_regular_image_to_memory(out_buff, out_buff_size, file_format, image_write_flags, level);
   }
   else
   {
@@ -2946,9 +2946,9 @@ bool mipmapped_texture::write_to_file(
   return success;
 }
 
-bool mipmapped_texture::write_regular_image_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format image_format, uint32 image_write_flags) {
+bool mipmapped_texture::write_regular_image_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format image_format, uint32 image_write_flags, uint32 level) {
   image_u8 tmp;
-  image_u8* pLevel_image = get_level_image(0, 0, tmp);
+  image_u8* pLevel_image = get_level_image(0, level, tmp);
 
   if (!image_utils::write_to_memory(out_buff, out_buff_size, image_format, *pLevel_image, image_write_flags)) {
     set_last_error("Memory write failed");

@@ -209,7 +209,8 @@ class mipmapped_texture {
     texture_file_types::format file_format = texture_file_types::cFormatInvalid,
     crn_comp_params* pComp_params = NULL,
     uint32* pActual_quality_level = NULL, float* pActual_bitrate = NULL,
-    uint32 image_write_flags = 0);
+    uint32 image_write_flags = 0,
+    uint32 level = 0);
 
   // Conversion
   bool convert(pixel_format fmt, bool cook, const dxt_image::pack_params& p);
@@ -331,7 +332,7 @@ class mipmapped_texture {
   void free_all_mips();
   bool read_regular_image(data_stream_serializer& serializer);
   bool write_regular_image(const char* pFilename, uint32 image_write_flags);
-  bool write_regular_image_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format image_format, uint32 image_write_flags);
+  bool write_regular_image_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, texture_file_types::format image_format, uint32 image_write_flags, uint32 level = 0);
   bool read_dds_internal(data_stream_serializer& serializer);
   void print_crn_comp_params(const crn_comp_params& p);
   bool write_comp_texture_to_memory(unsigned char **out_buff, std::size_t &out_buff_size, const crn_comp_params& orig_comp_params, uint32* pActual_quality_level, float* pActual_bitrate);
